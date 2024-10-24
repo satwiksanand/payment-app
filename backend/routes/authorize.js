@@ -1,10 +1,14 @@
 const { Router } = require("express");
+const { Users } = require("../db");
+const { JWT_SECRET_KEY } = require("../config");
+const { customError } = require("../utils/customError");
+
 const { ValidateNewUser } = require("../middleware/signUpValidation");
 const { validateExistingUser } = require("../middleware/signInValidation");
-const { Users } = require("../db");
-const { customError } = require("../utils/customError");
-const { JWT_SECRET_KEY } = require("../config");
+const { authMiddleware } = require("../middleware/authMiddleware");
+
 const jwt = require("jsonwebtoken");
+const { updateMiddleware } = require("../middleware/updateMiddleware");
 const authRouter = Router();
 
 authRouter.post("/signup", ValidateNewUser, async (req, res, next) => {
@@ -44,6 +48,54 @@ authRouter.post("/signin", validateExistingUser, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+authRouter.put(
+  "/update",
+  authMiddleware,
+  updateMiddleware,
+  async (req, res, next) => {
+    const id = req.userId;
+    try {
+      await Users.updateOne({ _id: id }, req.body);
+      res.json({
+        message: "user information updated!",
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+authRouter.get("/all", authMiddleware, async (req, res, next) => {
+  const filter = req.query.filter || "";
+  const users = await Users.find({
+    $or: [
+      {
+        firstName: {
+          $regex: filter,
+        },
+      },
+      {
+        lastName: {
+          $regex: filter,
+        },
+      },
+    ],
+  });
+
+  res.json({
+    user: users.map((user) => ({
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      _id: user._id,
+    })),
+  });
+});
+
+authRouter.use((req, res, next) => {
+  throw customError(404, "route not found!");
 });
 
 module.exports = {
