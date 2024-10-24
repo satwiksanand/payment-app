@@ -11,14 +11,20 @@ mongoose
   });
 
 const userSchema = new mongoose.Schema({
-  useremail: String,
+  useremail: {
+    type: String,
+    required: true,
+  },
   username: String,
   firstName: String,
   lastName: String,
-  password: String,
+  password: {
+    type: String,
+    required: true,
+  },
 });
 
-const Users = mongoose.model("Users", userSchema);
+const Users = mongoose.model("users", userSchema);
 
 module.exports = {
   Users,
