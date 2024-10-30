@@ -1,5 +1,5 @@
 const { Router } = require("express");
-const { Users } = require("../db");
+const { Users, Account } = require("../db");
 const { JWT_SECRET_KEY } = require("../config");
 const { customError } = require("../utils/customError");
 
@@ -18,13 +18,20 @@ authRouter.post("/signup", ValidateNewUser, async (req, res, next) => {
     if (existingUser) {
       throw customError(411, "Email already in use!");
     }
-    await Users.create({
+    const user = await Users.create({
       useremail: req.body.useremail,
       username: req.body.username,
       firstName: req.body.firstName,
       lastName: req.body.lastName,
       password: req.body.password,
     });
+
+    //TODO : do we need a transaction here, i don't want to create a user without account!
+    await Account.create({
+      userId: user._id,
+      balance: Math.floor(Math.random() * 100_000),
+    });
+
     res.json({
       message: "User successfully created!",
     });
@@ -34,10 +41,10 @@ authRouter.post("/signup", ValidateNewUser, async (req, res, next) => {
 });
 
 authRouter.post("/signin", validateExistingUser, async (req, res, next) => {
-  const { useremail } = req.body;
+  const { useremail, password } = req.body;
   try {
     const existingUser = await Users.findOne({ useremail });
-    if (!existingUser) {
+    if (!existingUser || existingUser.password != password) {
       throw customError(413, "Error while signing in!");
     }
     const token = jwt.sign({ useremail, id: existingUser._id }, JWT_SECRET_KEY);
